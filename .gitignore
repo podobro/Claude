@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 venv/
 logs/*.log
+logs/*.out
 data/*.json
 output/*.xlsx
 .pytest_cache/

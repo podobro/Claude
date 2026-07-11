@@ -65,8 +65,13 @@ def normalize_phone(raw: str) -> str | None:
     if not digits.isdigit() or not 8 <= len(digits) <= 15:
         return None
     if not s.startswith("+"):
+        if s.startswith("0"):
+            # Национален формат с нестандартна дължина — не гадаем.
+            return None
         # Номер без национален префикс — приемаме, че е български.
-        s = "+359" + s if len(s) <= 8 else "+" + s
+        s = "+359" + s
+    if s[1] == "0":  # "+0..." не е валиден международен номер
+        return None
     return s
 
 
@@ -164,7 +169,8 @@ class BaseScraper:
     def _rate_limit(self, url: str) -> None:
         domain = urlparse(url).netloc
         last = self._last_request.get(domain, 0.0)
-        wait = config.RATE_LIMIT_SECONDS - (time.monotonic() - last)
+        limit = config.RATE_LIMIT_OVERRIDES.get(self.name, config.RATE_LIMIT_SECONDS)
+        wait = limit - (time.monotonic() - last)
         if wait > 0:
             time.sleep(wait)
         self._last_request[domain] = time.monotonic()
@@ -197,12 +203,29 @@ class BaseScraper:
             self.log.warning("HTTP %s за %s", resp.status_code, url)
             self.errors += 1
             return None
+        # Anti-bot предизвикателства идват със статус 200 — разпознаваме ги.
+        # Радуер блокира при бърз повторен достъп, но пуска при повторен опит
+        # с backoff, затова ги третираме като временна (retryable) грешка.
+        if "<title>Radware Error Page</title>" in resp.text[:4000] or \
+                "<title>Just a moment" in resp.text[:1000]:
+            self.errors += 1
+            raise RetryableHTTPError(f"Anti-bot challenge за {url}")
         self.pages_visited += 1
         return resp.text
 
     def soup(self, url: str) -> BeautifulSoup | None:
         html = self.fetch(url)
         return BeautifulSoup(html, "lxml") if html else None
+
+    def soup_safe(self, url: str) -> BeautifulSoup | None:
+        """Като soup(), но при изчерпани retry-и връща None вместо да
+        прекрати целия скрейпър — за да не спре една блокирана страница
+        обхождането на останалите."""
+        try:
+            return self.soup(url)
+        except RetryableHTTPError as e:
+            self.log.warning("Пропускам %s след неуспешни опити: %s", url, e)
+            return None
 
     def abs_url(self, href: str, base: str | None = None) -> str:
         return urljoin(base or self.base_url, href)
@@ -211,12 +234,12 @@ class BaseScraper:
     def add_record(self, *, ime: str, grad: str = "", adres: str = "",
                    telefon: str = "", email: str = "", uebsait: str = "",
                    podkategoria: str = "", dopalnitelno: str = "",
-                   iztochnik: str = "") -> None:
+                   iztochnik: str = "", kategoria: str = "") -> None:
         ime = re.sub(r"\s+", " ", (ime or "")).strip()
         if not ime:
             return
         self.records.append({
-            "kategoria": self.kategoria,
+            "kategoria": kategoria or self.kategoria,
             "podkategoria": podkategoria,
             "ime": ime,
             "grad": re.sub(r"\s+", " ", grad or "").strip(),
@@ -248,7 +271,10 @@ class BaseScraper:
 
     def save_checkpoint(self, extra_state: dict | None = None) -> None:
         config.DATA_DIR.mkdir(exist_ok=True)
-        payload = {"records": self.records, "state": extra_state or {}}
+        if extra_state is not None:
+            self._checkpoint_state = extra_state
+        payload = {"records": self.records,
+                   "state": getattr(self, "_checkpoint_state", {})}
         self.checkpoint_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8"
         )
@@ -257,7 +283,8 @@ class BaseScraper:
         if self.checkpoint_path.exists():
             payload = json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
             self.records = payload.get("records", [])
-            return payload.get("state", {})
+            self._checkpoint_state = payload.get("state", {})
+            return self._checkpoint_state
         return {}
 
     # -------------------------------------------------------------- lifecycle

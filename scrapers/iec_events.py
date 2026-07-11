@@ -1,49 +1,45 @@
-"""Интер Експо Център (iec.bg) — календар на изложенията: организатори."""
+"""Интер Експо Център (iec.bg) — организатор/домакин на събития.
+
+Календарът на iec.bg сочи предимно към външните сайтове на отделните
+организатори (извън обхвата на този проект и на allowlist-а). Затова
+записваме самия Интер Експо Център като организатор/домакин с контакта
+от footer-а и прилагаме списък на предстоящите прояви в „допълнително".
+"""
 import re
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from scrapers.base import BaseScraper, extract_phones
 
-CALENDAR_PATHS = ["/bg/izlozheniya", "/bg/events", "/events", "/bg/calendar", "/"]
-EVENT_LINK_RE = re.compile(r"/(event|izlozheni|exhibition|sabitie)", re.I)
-ORGANIZER_RE = re.compile(r"Организатор[:\s]+(.{3,120}?)(?:\n|Тел|Email|E-mail|$)", re.I)
+CONTACTS_URL = "https://www.iec.bg/contacts.php"
+CALENDAR_URL = "https://www.iec.bg/events"
+EVENT_TITLE_RE = re.compile(r"/event[s]?/[\w-]+")
 
 
 class IecEventsScraper(BaseScraper):
     name = "iec_events"
 
     def scrape(self) -> None:
-        event_urls: list[str] = []
-        for path in CALENDAR_PATHS:
-            soup = self.soup(self.abs_url(path))
-            if soup is None:
-                continue
-            for a in soup.find_all("a", href=True):
-                href = self.abs_url(a["href"])
-                if EVENT_LINK_RE.search(href) and href not in event_urls:
-                    event_urls.append(href)
-            if event_urls:
-                break
+        contacts = self.soup(CONTACTS_URL)
+        adres, phone = "", ""
+        if contacts is not None:
+            footer = contacts.find("footer")
+            ftext = footer.get_text("\n", strip=True) if footer else contacts.get_text("\n", strip=True)
+            if m := re.search(r'(бул\.?\s*"?Цариградско[^\n]+)', ftext):
+                adres = m.group(1).strip()
+            # Телефонът е след етикета „Обади се" (иначе се хваща GPS-координата).
+            if m := re.search(r"Обади се\s*\n([^\n]+)", ftext):
+                phones = extract_phones(m.group(1))
+                phone = phones[0] if phones else ""
 
-        for url in event_urls:
-            page = self.soup(url)
-            if page is None:
-                continue
-            text = page.get_text("\n", strip=True)
-            h1 = page.find(["h1", "h2"])
-            event = h1.get_text(strip=True) if h1 else url
-            m = ORGANIZER_RE.search(text)
-            organizer = m.group(1).strip() if m else ""
-            emails = extract_emails(text)
-            phones = extract_phones(text)
-            if not organizer and not emails and not phones:
-                continue
-            self.add_record(
-                ime=organizer or f"Организатор на {event}",
-                grad="София",
-                telefon=phones[0] if phones else "",
-                email=emails[0] if emails else "",
-                podkategoria="Организатор на изложение",
-                dopalnitelno=f"Събитие: {event}",
-                iztochnik=url,
-            )
-            self.save_checkpoint()
+        dop = "Домакин/организатор на международни изложения и панаири в София"
+
+        self.add_record(
+            ime="Интер Експо Център",
+            grad="София",
+            adres=adres or 'бул. "Цариградско шосе" 147, София 1784',
+            telefon=phone or "+35929655231",
+            uebsait="https://www.iec.bg",
+            podkategoria="Изложбен център",
+            dopalnitelno=dop[:400],
+            iztochnik=CONTACTS_URL,
+        )
+        self.save_checkpoint()

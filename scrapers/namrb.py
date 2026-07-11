@@ -1,72 +1,63 @@
-"""НСОРБ (namrb.org) — всички 265 общини: име, адрес, телефон, имейл, сайт."""
+"""НСОРБ (namrb.org) — всички общини от страницата „Членове на НСОРБ".
+
+Данните са в една HTML таблица: ред с 1 клетка е област; ред с 8 клетки
+(rowspan=2) е община: [община, население, кмет, адрес, пощ. код, тел. код,
+телефон, факс]. Продължаващият 3-клетъчен ред (председател на ОбС) се
+пропуска — не събираме лични имена. Забележка: регистърът НЕ съдържа
+имейли и уебсайтове.
+"""
 import re
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from scrapers.base import BaseScraper, normalize_phone
 
-# Страници, на които може да живее списъкът с общини.
-START_PATHS = [
-    "/bg/obshtinite-dnes",
-    "/bg/obshtini",
-    "/municipalities-today",
-    "/en/municipalities-today/29",
-    "/",
-]
+MEMBERS_URL = "https://www.namrb.org/bg/tchlenove-na-nsorb"
 
-MUNICIPALITY_LINK_RE = re.compile(r"(obshtin|municipalit)", re.I)
+
+def _first_phone(cell: str, tel_code: str) -> str:
+    """Първият телефон от клетката, комбиниран с телефонния код при нужда."""
+    for part in re.split(r"[;,]", cell):
+        digits = re.sub(r"[^\d]", "", part)
+        if len(digits) < 4:
+            continue
+        if digits.startswith("0"):          # пълен номер (вкл. мобилен)
+            return normalize_phone(digits) or ""
+        return normalize_phone(tel_code + digits) or ""
+    return ""
 
 
 class NamrbScraper(BaseScraper):
     name = "namrb"
 
     def scrape(self) -> None:
-        state = self.load_checkpoint()
-        done = set(state.get("done_urls", []))
-
-        detail_urls: list[str] = []
-        for path in START_PATHS:
-            soup = self.soup(self.abs_url(path))
-            if soup is None:
-                continue
-            for a in soup.find_all("a", href=True):
-                href = self.abs_url(a["href"])
-                if MUNICIPALITY_LINK_RE.search(href) and href not in detail_urls:
-                    detail_urls.append(href)
-            if len(detail_urls) > 50:  # намерили сме каталога
-                break
-
-        if not detail_urls:
-            self.log.warning("Не открих списък с общини — проверете START_PATHS")
+        soup = self.soup(MEMBERS_URL)
+        if soup is None:
+            return
+        table = soup.find("table")
+        if table is None:
+            self.log.error("Няма таблица на %s — структурата е променена", MEMBERS_URL)
             return
 
-        for url in detail_urls:
-            if url in done:
+        oblast = ""
+        for tr in table.find_all("tr"):
+            cells = [td.get_text(" ", strip=True) for td in tr.find_all("td")]
+            if len(cells) == 1 and cells[0]:
+                oblast = cells[0].title()
                 continue
-            soup = self.soup(url)
-            if soup is None:
+            if len(cells) != 8 or cells[0].startswith("Област"):
+                continue  # header или продължаващ ред с председателя на ОбС
+            obshtina, naselenie, _kmet, adres, posht_kod, tel_kod, telefon, _fax = cells
+            if not obshtina:
                 continue
-            h1 = soup.find(["h1", "h2"])
-            ime = h1.get_text(strip=True) if h1 else ""
-            if "община" not in ime.lower():
-                if not ime:
-                    continue
-                ime = f"Община {ime}"
-            text = soup.get_text(" ", strip=True)
-            emails = extract_emails(text)
-            phones = extract_phones(text)
-            site = ""
-            for a in soup.find_all("a", href=True):
-                if a["href"].startswith("http") and "namrb" not in a["href"]:
-                    site = a["href"]
-                    break
-            grad = ime.replace("Община", "").strip()
+            ime = obshtina if "община" in obshtina.lower() else f"Община {obshtina}"
+            grad = obshtina.replace("Столична община", "София").strip()
+            adres_full = ", ".join(x for x in (adres.replace("''", '"'), posht_kod) if x and x != "-")
             self.add_record(
-                ime=ime, grad=grad,
-                telefon=phones[0] if phones else "",
-                email=emails[0] if emails else "",
-                uebsait=site, iztochnik=url,
+                ime=ime,
+                grad=grad,
+                adres=adres_full,
+                telefon=_first_phone(telefon, tel_kod),
+                podkategoria=f"Област {oblast}" if oblast else "",
+                dopalnitelno=f"Население: {naselenie}" if naselenie else "",
+                iztochnik=MEMBERS_URL,
             )
-            done.add(url)
-            if len(done) % 20 == 0:
-                self.save_checkpoint({"done_urls": sorted(done)})
-
-        self.save_checkpoint({"done_urls": sorted(done)})
+        self.save_checkpoint()

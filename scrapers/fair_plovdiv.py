@@ -1,49 +1,64 @@
-"""Пловдивски панаир (fair.bg) — календар на събития: организатори."""
+"""Пловдивски панаир (fair.bg) — организатор на изложения.
+
+Всяко изложение (/bg/event/<год>/<slug>) е организирано от Международен
+панаир Пловдив и има свой отговорник с имейл (mailto:) и телефон.
+Извличаме по един запис на изложение с контакта за участие.
+"""
 import re
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from scrapers.base import BaseScraper, extract_phones
 
-CALENDAR_PATHS = ["/bg/kalendar", "/bg/events", "/events", "/"]
-EVENT_LINK_RE = re.compile(r"/(event|sabitie|izlozhba|panair|kalendar)", re.I)
-ORGANIZER_RE = re.compile(r"Организатор[:\s]+(.{3,120}?)(?:\n|Тел|Email|E-mail|$)", re.I)
+EVENTS_URL = "https://www.fair.bg/bg/events/event/upcoming/2026"
+EVENT_RE = re.compile(r"/bg/event/\d{4}/[a-z0-9-]+$")
 
 
 class FairPlovdivScraper(BaseScraper):
     name = "fair_plovdiv"
 
     def scrape(self) -> None:
-        event_urls: list[str] = []
-        for path in CALENDAR_PATHS:
-            soup = self.soup(self.abs_url(path))
+        event_urls: dict[str, str] = {}
+        for listing in (EVENTS_URL, "https://www.fair.bg/bg/events"):
+            soup = self.soup_safe(listing)
             if soup is None:
                 continue
             for a in soup.find_all("a", href=True):
-                href = self.abs_url(a["href"])
-                if EVENT_LINK_RE.search(href) and href not in event_urls:
-                    event_urls.append(href)
-            if event_urls:
-                break
+                href = a["href"].rstrip("/")
+                if EVENT_RE.search(href):
+                    url = self.abs_url(href)
+                    if url not in event_urls:
+                        event_urls[url] = a.get_text(strip=True)
+        self.log.info("Открити %d изложения", len(event_urls))
 
         for url in event_urls:
-            page = self.soup(url)
+            page = self.soup_safe(url)
             if page is None:
                 continue
-            text = page.get_text("\n", strip=True)
-            h1 = page.find(["h1", "h2"])
-            event = h1.get_text(strip=True) if h1 else url
-            m = ORGANIZER_RE.search(text)
-            organizer = m.group(1).strip() if m else ""
-            emails = extract_emails(text)
-            phones = extract_phones(text)
-            if not organizer and not emails and not phones:
-                continue
+            # Име на изложението от URL slug (надеждно; h1 е общ банер).
+            slug = url.rstrip("/").rsplit("/", 1)[-1]
+            event = slug.replace("-", " ").upper()
+
+            mails = [a["href"].replace("mailto:", "").strip()
+                     for a in page.find_all("a", href=re.compile(r"mailto:"))]
+            # Предпочитаме конкретния отговорник на изложението пред общите кутии.
+            generic = {"info@fair.bg", "fairinfo@fair.bg", "office@fair.bg"}
+            specific = [m for m in mails if m.lower() not in generic]
+            email = (specific or mails or [""])[0]
+
+            text = page.get_text(" ", strip=True)
+            # Телефоните на панаира са в централата 032 902 xxx — филтрираме,
+            # за да не хванем дати (напр. „22 04 2026") като телефон.
+            phones = [p for p in extract_phones(text) if p.startswith("+35932902")]
+            if not phones:
+                phones = extract_phones(text)
+
             self.add_record(
-                ime=organizer or f"Организатор на {event}",
+                ime="Международен панаир Пловдив",
                 grad="Пловдив",
                 telefon=phones[0] if phones else "",
-                email=emails[0] if emails else "",
+                email=email,
+                uebsait="https://www.fair.bg",
                 podkategoria="Организатор на изложение",
-                dopalnitelno=f"Събитие: {event}",
+                dopalnitelno=f"Изложение: {event}",
                 iztochnik=url,
             )
             self.save_checkpoint()

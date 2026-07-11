@@ -16,6 +16,10 @@ USER_AGENT = (
 
 # Минимум секунди между заявки към един и същ домейн.
 RATE_LIMIT_SECONDS = 2.0
+# По-консервативно темпо за сайтове с bot защита (ключ = име на източник).
+RATE_LIMIT_OVERRIDES = {
+    "mfa_embassies": 6.0,
+}
 REQUEST_TIMEOUT = 30.0
 MAX_RETRIES = 3
 
@@ -52,13 +56,13 @@ SOURCES = {
         "url": "https://www.business.bg",
         "kategoria": "Бизнес клиенти",
         "js": False,
-        # Категории за обхождане: ключова дума -> етикет за подкатегория
+        # Категории за --category (виж scrapers/business_bg.py: CATEGORIES).
         "categories": {
             "hoteli": "Хотел",
             "benzinostancii": "Бензиностанция",
-            "avtokashti": "Автокъща",
-            "targovski-centrove": "Търговски център",
+            "avtokyshti": "Автокъща",
             "reklamni-agencii": "Рекламна агенция",
+            "stroitelni-firmi": "Строителна фирма",
         },
     },
     "zlatni_stranici": {

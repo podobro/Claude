@@ -1,66 +1,116 @@
-"""ЦАИС ЕОП (app.eop.bg) — възложители на приключили поръчки за знамена.
+"""ЦАИС ЕОП (app.eop.bg) — възложители на поръчки за знамена.
 
-SPA приложение — Playwright. Търсим по ключови думи ("знамена", "знаме",
-"флагове") в публичните обявления и извличаме възложител, град, стойност
-и година на поръчката.
+app.eop.bg е Angular SPA пред WCF услуга (NX1Service.svc). Търсенето в
+приключилите/публикуваните поръчки върви през REST метода
+GetPublishedTendersAdvancedSearchResult с DataContract, реконструиран от
+JS bundle-а (полето PublishedTenderNameKeywords = ключова дума в предмета).
+
+ВАЖНО (ограничение на средата): NX1Service отговаря на този метод с
+асинхронен HTTP 202 без тяло — резултатът се доставя по отделен
+push-канал, който изисква автентикирана браузърна сесия. В обкръжение с
+нормален достъп методът връща данните директно. Тук ползваме и
+DownloadPublishedTendersAdvancedSearchFileContent (Excel/CSV), който при
+достъпен канал връща файла синхронно.
 """
-import re
+import io
 
 import config
 from scrapers.base import BaseScraper
 
-SEARCH_URL = "https://app.eop.bg/today/search?q={kw}"
-YEAR_RE = re.compile(r"\b(20\d{2})\b")
-VALUE_RE = re.compile(r"([\d\s.,]{3,})\s*(?:лв|BGN|EUR)", re.I)
+SERVICE = "https://service.eop.bg/NX1Service.svc"
+SEARCH_METHOD = f"{SERVICE}/GetPublishedTendersAdvancedSearchResult"
+
+# Празни стойности за всички полета на формата за търсене (от JS bundle-а).
+_STR_FIELDS = [
+    "PublishedTenderNameKeywords", "OrganizationKeywords", "BuyerBatchNumber",
+    "AssignmentOrder", "BatchNumber", "YearCreated", "SerialNumber",
+    "ContractingAuthorityRegistryNumber", "SupplierName", "SupplierPublicId",
+    "PropertyDisplayName",
+]
+_NULL_FIELDS = [
+    "CpvCode", "TypeOfContract", "ExecutionRegion", "NutsCode", "ProcedureType",
+    "TechniquesAndInstruments", "OfferReceivingStartDate", "OfferReceivingEndDate",
+    "PublishStartDate", "PublishEndDate", "EuropeanPublication", "EuropeanFinancing",
+    "SpecificServices", "DefinedPositions", "SavedOrders", "AppealProceedingsInstituted",
+    "SecurityAndDefense", "ProcurementStatus", "ContractCriteria", "GreenCriteriaType",
+    "ActivityTypeGroup", "SupplierType", "AllowMultipleOffers", "FirstStageControl",
+    "IsStrategicTender", "Variants",
+]
+
+
+def _build_request(keyword: str, page: int = 1, size: int = 50) -> dict:
+    req = {k: "" for k in _STR_FIELDS}
+    req.update({k: None for k in _NULL_FIELDS})
+    req["EUProgramCodes"] = []
+    req["PublishedTenderNameKeywords"] = keyword
+    req["StartIndex"] = (page - 1) * size + 1
+    req["EndIndex"] = page * size
+    req["OrderColumn"] = "PublicationDate"
+    req["OrderDirection"] = "desc"
+    return req
 
 
 class EopScraper(BaseScraper):
     name = "eop"
 
     def scrape(self) -> None:
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            self.log.error("playwright не е инсталиран — пропускам")
-            return
+        for kw in config.EOP_KEYWORDS:
+            self.log.info("Търсене в ЦАИС ЕОП по ключова дума: %s", kw)
+            self._rate_limit(SERVICE)
+            try:
+                resp = self.client.post(SEARCH_METHOD, json={"request": _build_request(kw)})
+            except Exception as e:  # noqa: BLE001
+                self.log.warning("Заявка към %s се провали: %s", SEARCH_METHOD, e)
+                self.errors += 1
+                continue
+            self.pages_visited += 1
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page()
-            for kw in config.EOP_KEYWORDS:
-                url = SEARCH_URL.format(kw=kw)
-                self.log.info("Търсене: %s", kw)
-                page.goto(url, wait_until="networkidle", timeout=90000)
-                self.pages_visited += 1
-                # Резултатите са карти/редове със заглавие и възложител.
-                items = page.locator("[class*='result'], [class*='notice'], article")
-                count = items.count()
-                self.log.info("Открити %d резултата за '%s'", count, kw)
-                for i in range(min(count, 200)):
-                    text = items.nth(i).inner_text()
-                    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-                    if not lines:
-                        continue
-                    title = lines[0]
-                    vazlozhitel = ""
-                    for ln in lines[1:]:
-                        if any(w in ln.lower() for w in ("община", "министерство",
-                                                         "агенция", "университет",
-                                                         "болница", "дирекция")):
-                            vazlozhitel = ln
-                            break
-                    year = YEAR_RE.search(text)
-                    value = VALUE_RE.search(text)
-                    dop = f"Поръчка: {title}"
-                    if value:
-                        dop += f"; стойност: {value.group(0)}"
-                    if year:
-                        dop += f"; година: {year.group(1)}"
-                    self.add_record(
-                        ime=vazlozhitel or title,
-                        podkategoria=f"Купувач на '{kw}'",
-                        dopalnitelno=dop,
-                        iztochnik=url,
-                    )
-                self.save_checkpoint()
-            browser.close()
+            if resp.status_code == 202 or not resp.content:
+                self.log.warning(
+                    "NX1Service върна асинхронен %s без тяло за '%s' — "
+                    "резултатът се доставя по push-канал, изискващ браузърна "
+                    "сесия (вж. README/бележка в кода). Пропускам.",
+                    resp.status_code, kw)
+                continue
+            if resp.status_code != 200:
+                self.log.warning("HTTP %s от NX1Service за '%s'", resp.status_code, kw)
+                self.errors += 1
+                continue
+
+            try:
+                data = resp.json()
+            except ValueError:
+                self.log.warning("Неочакван (не-JSON) отговор за '%s'", kw)
+                continue
+            self._ingest(data.get("d", data), kw)
+            self.save_checkpoint()
+
+    def _ingest(self, data, kw: str) -> None:
+        items = []
+        if isinstance(data, dict):
+            for key in ("Items", "Result", "Results", "Data", "Tenders"):
+                if isinstance(data.get(key), list):
+                    items = data[key]
+                    break
+        elif isinstance(data, list):
+            items = data
+        self.log.info("Резултати за '%s': %d", kw, len(items))
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            buyer = (it.get("OrganizationName") or it.get("ContractingAuthorityName")
+                     or it.get("BuyerName") or "")
+            subject = it.get("TenderName") or it.get("Name") or it.get("Subject") or ""
+            value = it.get("TenderAmount") or it.get("EstimatedValue") or ""
+            pub = it.get("PublicationDate") or it.get("PublishDate") or ""
+            dop = "; ".join(x for x in (
+                f"Поръчка: {subject}" if subject else "",
+                f"Стойност: {value}" if value else "",
+                f"Публикувана: {pub}" if pub else "",
+            ) if x)
+            self.add_record(
+                ime=buyer or subject or f"Поръчка ({kw})",
+                podkategoria=f"Купувач на '{kw}'",
+                dopalnitelno=dop,
+                iztochnik="https://app.eop.bg/today/reporting/search",
+            )
