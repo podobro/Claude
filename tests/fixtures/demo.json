@@ -1,0 +1,82 @@
+{
+ "records": [
+  {
+   "kategoria": "Общини",
+   "podkategoria": "",
+   "ime": "Община Пловдив",
+   "grad": "Пловдив",
+   "adres": "пл. Стефан Стамболов 1",
+   "telefon": "032 656 701",
+   "email": "info@plovdiv.bg",
+   "uebsait": "https://www.plovdiv.bg",
+   "dopalnitelno": "",
+   "iztochnik": "https://www.namrb.org (демо)",
+   "data_izvlichane": "2026-07-11"
+  },
+  {
+   "kategoria": "Общини",
+   "podkategoria": "",
+   "ime": "Община Пловдив",
+   "grad": "Пловдив",
+   "adres": "",
+   "telefon": "+35932656701",
+   "email": "",
+   "uebsait": "",
+   "dopalnitelno": "дубликат по телефон",
+   "iztochnik": "друг каталог (демо)",
+   "data_izvlichane": "2026-07-11"
+  },
+  {
+   "kategoria": "Общини",
+   "podkategoria": "",
+   "ime": "Община Варна",
+   "grad": "Варна",
+   "adres": "бул. Осми приморски полк 43",
+   "telefon": "052 820 000",
+   "email": "varna@varna.bg",
+   "uebsait": "https://varna.bg",
+   "dopalnitelno": "",
+   "iztochnik": "https://www.namrb.org (демо)",
+   "data_izvlichane": "2026-07-11"
+  },
+  {
+   "kategoria": "Посолства",
+   "podkategoria": "Задгранична мисия",
+   "ime": "Посолство на РБ в Берлин",
+   "grad": "Берлин",
+   "adres": "Mauerstr. 11, 10117 Berlin",
+   "telefon": "+49 30 201 0922",
+   "email": "embassy.berlin@mfa.bg",
+   "uebsait": "",
+   "dopalnitelno": "",
+   "iztochnik": "https://www.mfa.bg (демо)",
+   "data_izvlichane": "2026-07-11"
+  },
+  {
+   "kategoria": "Хотели",
+   "podkategoria": "Място за настаняване",
+   "ime": "Хотел Тримонциум",
+   "grad": "Пловдив",
+   "adres": "ул. Капитан Райчо 2",
+   "telefon": "",
+   "email": "",
+   "uebsait": "",
+   "dopalnitelno": "Категория: 4 звезди",
+   "iztochnik": "https://ntr.tourism.government.bg (демо)",
+   "data_izvlichane": "2026-07-11"
+  },
+  {
+   "kategoria": "Институции (доказани купувачи)",
+   "podkategoria": "Купувач на 'знамена'",
+   "ime": "Министерство на отбраната",
+   "grad": "София",
+   "adres": "",
+   "telefon": "",
+   "email": "",
+   "uebsait": "",
+   "dopalnitelno": "Поръчка: Доставка на национални знамена; стойност: 45 000 лв; година: 2025",
+   "iztochnik": "https://app.eop.bg (демо)",
+   "data_izvlichane": "2026-07-11"
+  }
+ ]
+}
