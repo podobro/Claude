@@ -7,7 +7,7 @@ email-protection (data-cfemail) — декодираме ги. Телефони�
 """
 import re
 
-from scrapers.base import BaseScraper, extract_phones
+from base import BaseScraper, extract_phones
 
 DIOCESES_URL = "https://bg-patriarshia.bg/dioceses"
 DIOCESE_RE = re.compile(r"/[a-z-]+-diocese$")

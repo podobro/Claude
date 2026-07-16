@@ -8,7 +8,7 @@ o-<id>/s-<N>/<slug>.html.
 """
 import re
 
-from scrapers.base import BaseScraper, ScrapeBlocked
+from base import BaseScraper, ScrapeBlocked
 
 # Ключ = URL slug на категория, стойност = (id, етикет за подкатегория).
 CATEGORIES = {

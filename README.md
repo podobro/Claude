@@ -4,12 +4,49 @@ Python система, която обхожда публични източни
 контактна информация на организации и я записва в един систематизиран
 Excel файл (`output/kontakti_znamena.xlsx`), категоризиран по таргет групи.
 
+## Структура на проекта
+
+Общата логика е в корена, а всеки сайт-специфичен скрейпър е в отделна
+подпапка, кръстена на домейна на сайта:
+
+```
+Скриптове за обхождане/          (коренът на проекта)
+├── main.py                      # CLI
+├── config.py                    # URL-и, лимити, настройки
+├── base.py                      # BaseScraper: rate limit, retry, robots, checkpoint
+├── exporter.py                  # Excel + дедупликация + валидация
+├── registry.py                  # открива скрейпърите от подпапките
+├── requirements.txt
+├── README.md
+├── namrb.org/namrb.py           # ┐
+├── ntr.tourism.government.bg/ntr_hotels.py
+├── iisda.government.bg/iisda.py │
+├── business.bg/business_bg.py   │ по един скрейпър на сайт,
+├── mfa.bg/mfa_embassies.py      │ във папка с името на сайта
+├── web.mon.bg/mon_schools.py    │
+├── app.eop.bg/eop.py            │
+├── zlatnistranici.bg/zlatni_stranici.py
+├── bfunion.bg/bfs_clubs.py      │
+├── mmsbg.info/mms_sport_clubs.py│
+├── iec.bg/iec_events.py         │
+├── fair.bg/fair_plovdiv.py      │
+├── bg-patriarshia.bg/patriarshia.py  ┘
+├── data/                        # междинни JSON checkpoint-и
+├── output/kontakti_znamena.xlsx
+├── logs/
+└── tests/
+```
+
+`registry.py` сканира подпапките и зарежда всеки скрейпър по път до файла,
+затова папките може да се преименуват свободно, без да се чупи нищо —
+стига всеки скрейпър да наследява `BaseScraper` и да има поле `name`.
+
 ## Инсталация
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-playwright install chromium        # нужно за eop, iisda, ntr_hotels
+playwright install chromium        # само ако пускате в среда с браузърен достъп
 ```
 
 ## Стартиране
@@ -107,7 +144,7 @@ python tests/test_pipeline.py
 Събират се **само служебни/фирмени контакти** (office@, info@, официални
 телефони на организации) от публични регистри и каталози — не се събират
 лични имена с лични имейли/телефони на физически лица (лични кутии в
-безплатни пощи се филтрират автоматично в `scrapers/base.py`). Данните са
+безплатни пощи се филтрират автоматично в `base.py`). Данните са
 предназначени за B2B контакт по служебни канали на основание легитимен
 интерес (чл. 6, ал. 1, б. „е“ GDPR). При имейл кампании е задължително
 всяко писмо да съдържа ясна opt-out възможност, а отписванията да се

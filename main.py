@@ -12,7 +12,7 @@ import sys
 
 import config
 from exporter import export_excel
-from scrapers import SCRAPERS
+from registry import SCRAPERS
 
 
 def setup_logging() -> None:

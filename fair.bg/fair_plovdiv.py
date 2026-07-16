@@ -6,7 +6,7 @@
 """
 import re
 
-from scrapers.base import BaseScraper, extract_phones
+from base import BaseScraper, extract_phones
 
 EVENTS_URL = "https://www.fair.bg/bg/events/event/upcoming/2026"
 EVENT_RE = re.compile(r"/bg/event/\d{4}/[a-z0-9-]+$")

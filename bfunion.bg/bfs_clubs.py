@@ -1,7 +1,7 @@
 """БФС (bfunion.bg) — футболни клубове по лиги."""
 import re
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from base import BaseScraper, extract_emails, extract_phones
 
 LEAGUE_PATHS = {
     "/first-league": "Футболен клуб — Първа лига",

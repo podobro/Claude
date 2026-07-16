@@ -1,7 +1,7 @@
 """Регистър на ММС (mmsbg.info) — публичен регистър на спортните клубове."""
 import re
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from base import BaseScraper, extract_emails, extract_phones
 
 REGISTER_HINT_RE = re.compile(r"(регистър|клуб|register|club)", re.I)
 

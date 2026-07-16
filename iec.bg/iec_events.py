@@ -7,7 +7,7 @@
 """
 import re
 
-from scrapers.base import BaseScraper, extract_phones
+from base import BaseScraper, extract_phones
 
 CONTACTS_URL = "https://www.iec.bg/contacts.php"
 CALENDAR_URL = "https://www.iec.bg/events"

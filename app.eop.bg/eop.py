@@ -15,7 +15,7 @@ DownloadPublishedTendersAdvancedSearchFileContent (Excel/CSV), който при
 import io
 
 import config
-from scrapers.base import BaseScraper
+from base import BaseScraper
 
 SERVICE = "https://service.eop.bg/NX1Service.svc"
 SEARCH_METHOD = f"{SERVICE}/GetPublishedTendersAdvancedSearchResult"

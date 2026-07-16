@@ -9,7 +9,7 @@
 """
 import json
 
-from scrapers.base import BaseScraper, RetryableHTTPError
+from base import BaseScraper, RetryableHTTPError
 
 API_URL = ("https://ntr.tourism.government.bg/CategoryzationAll.nsf"
            "/api/data/collections/name/vRegistarMNValid1")

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config
 from exporter import dedupe_records, export_excel, validate_records
-from scrapers.base import extract_emails, extract_phones, normalize_phone, validate_email
+from base import extract_emails, extract_phones, normalize_phone, validate_email
 
 
 def rec(**kw):

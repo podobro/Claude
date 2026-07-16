@@ -8,7 +8,7 @@
 """
 import re
 
-from scrapers.base import BaseScraper, normalize_phone
+from base import BaseScraper, normalize_phone
 
 MEMBERS_URL = "https://www.namrb.org/bg/tchlenove-na-nsorb"
 

@@ -6,7 +6,7 @@
 """
 import re
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from base import BaseScraper, extract_emails, extract_phones
 
 LISTING_URL = "https://www.mfa.bg/bg/embassyinfo"
 MISSION_HEADER_RE = re.compile(

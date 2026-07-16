@@ -6,7 +6,7 @@
 from urllib.parse import quote
 
 import config
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from base import BaseScraper, extract_emails, extract_phones
 
 SEARCH_URL = "https://www.zlatnistranici.bg/търсене/{kw}"
 

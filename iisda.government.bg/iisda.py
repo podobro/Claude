@@ -8,7 +8,7 @@ import re
 
 from bs4 import BeautifulSoup
 
-from scrapers.base import BaseScraper, extract_emails, extract_phones
+from base import BaseScraper, extract_emails, extract_phones
 
 BASE = "https://iisda.government.bg"
 CATEGORIES = [
@@ -187,7 +187,7 @@ def _phones_with_area_code(corr_txt: str) -> list[str]:
     (напр. „Kод: (02) … Телефон: 9482999"), затова го долепваме,
     когато номерът не започва с 0.
     """
-    from scrapers.base import normalize_phone
+    from base import normalize_phone
     kod = ""
     if m := re.search(r"избиране:\s*\((\d+)\)", corr_txt):
         kod = m.group(1)

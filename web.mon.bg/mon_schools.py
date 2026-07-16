@@ -8,7 +8,7 @@ import re
 
 import pandas as pd
 
-from scrapers.base import BaseScraper
+from base import BaseScraper
 
 FILE_RE = re.compile(r"\.(xlsx|xls|csv)(\?|$)", re.I)
 

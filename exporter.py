@@ -12,7 +12,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 import config
-from scrapers.base import normalize_phone, validate_email
+from base import normalize_phone, validate_email
 
 log = logging.getLogger("exporter")
 
