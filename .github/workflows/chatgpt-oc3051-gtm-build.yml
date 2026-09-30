@@ -1,0 +1,59 @@
+name: Build OC3051 GTM Ecommerce
+
+on:
+  push:
+    branches:
+      - chatgpt/oc3051-gtm-ecommerce-v1
+    paths:
+      - 'builds/oc3051_gtm_ecommerce_v1_0_0/**'
+      - '.github/workflows/chatgpt-oc3051-gtm-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: PHP syntax lint
+        run: |
+          set -euo pipefail
+          find builds/oc3051_gtm_ecommerce_v1_0_0 -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate required package files
+        run: |
+          set -euo pipefail
+          test -f builds/oc3051_gtm_ecommerce_v1_0_0/upload/admin/controller/extension/analytics/gtm_ecommerce.php
+          test -f builds/oc3051_gtm_ecommerce_v1_0_0/upload/admin/view/template/extension/analytics/gtm_ecommerce.twig
+          test -f builds/oc3051_gtm_ecommerce_v1_0_0/upload/catalog/controller/extension/analytics/gtm_ecommerce.php
+          test -f builds/oc3051_gtm_ecommerce_v1_0_0/README_BG.txt
+
+      - name: Build OCMOD ZIP
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cd builds/oc3051_gtm_ecommerce_v1_0_0
+          zip -r ../../dist/oc3051_gtm_ecommerce_v1.0.0.ocmod.zip upload README_BG.txt
+          cd ../..
+          unzip -l dist/oc3051_gtm_ecommerce_v1.0.0.ocmod.zip
+          test "$(unzip -Z1 dist/oc3051_gtm_ecommerce_v1.0.0.ocmod.zip | grep -c '^upload/')" -gt 0
+
+      - name: Commit built package
+        run: |
+          set -euo pipefail
+          git config user.name "ChatGPT Build"
+          git config user.email "actions@users.noreply.github.com"
+          git add dist/oc3051_gtm_ecommerce_v1.0.0.ocmod.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "Build OC3051 GTM ecommerce v1.0.0"
+            git push
+          fi
